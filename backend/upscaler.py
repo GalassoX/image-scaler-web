@@ -1,9 +1,16 @@
 import os
+import sys
 import threading
 import environ
 
 import numpy as np
 import torch
+
+from torchvision.transforms import functional as _tv_functional
+sys.modules["torchvision.transforms.functional_tensor"] = _tv_functional
+
+torch.set_num_threads(1)
+
 from basicsr.archs.rrdbnet_arch import RRDBNet
 from PIL import Image
 from realesrgan import RealESRGANer
@@ -12,6 +19,14 @@ from realesrgan import RealESRGANer
 MODEL_URL = environ.get_env("MODEL_PTH_URL")
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "weights")
 MODEL_PATH = os.path.join(MODEL_DIR, "RealESRGAN_x4plus.pth")
+
+
+
+
+
+
+
+
 
 
 class ImageUpscaler:
@@ -31,30 +46,34 @@ class ImageUpscaler:
     if self._model is not None:
       return
 
-    os.makedirs(MODEL_DIR, exist_ok=True)
-    if not os.path.exists(MODEL_PATH):
-      self._download_weights()
+    with self._lock:
+      if self._model is not None:
+        return
 
-    # Arquitectura usada por RealESRGAN_x4plus
-    arch = RRDBNet(
-      num_in_ch=3,
-      num_out_ch=3,
-      num_feat=64,
-      num_block=23,
-      num_grow_ch=32,
-      scale=4,
-    )
+      os.makedirs(MODEL_DIR, exist_ok=True)
+      if not os.path.exists(MODEL_PATH):
+        self._download_weights()
 
-    self._model = RealESRGANer(
-      scale=4,
-      model_path=MODEL_PATH,
-      model=arch,
-      tile=256,  # procesa por partes para no saturar la memoria en CPU
-      tile_pad=10,
-      pre_pad=0,
-      half=False,  # half precision requiere GPU; en CPU debe ir en False
-      device=torch.device("cpu"),
-    )
+      # Arquitectura usada por RealESRGAN_x4plus
+      arch = RRDBNet(
+        num_in_ch=3,
+        num_out_ch=3,
+        num_feat=64,
+        num_block=23,
+        num_grow_ch=32,
+        scale=4,
+      )
+
+      self._model = RealESRGANer(
+        scale=4,
+        model_path=MODEL_PATH,
+        model=arch,
+        tile=128,  # procesa por partes para no saturar la memoria en CPU
+        tile_pad=10,
+        pre_pad=0,
+        half=False,  # half precision requiere GPU; en CPU debe ir en False
+        device=torch.device("cpu"),
+      )
 
   def _download_weights(self):
     import urllib.request
@@ -67,7 +86,9 @@ class ImageUpscaler:
 
     with self._lock:  # evita que dos requests procesen a la vez en CPU
       img_array = np.array(image)
-      # El modelo base está entrenado para x4; si piden x2, hacemos x4 y reescalamos
-      output, _ = self._model.enhance(img_array, outscale=scale)
+
+      with torch.no_grad():
+        # El modelo base está entrenado para x4; si piden x2, hacemos x4 y reescalamos
+        output, _ = self._model.enhance(img_array, outscale=scale)
 
     return Image.fromarray(output)

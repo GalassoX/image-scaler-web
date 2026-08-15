@@ -1,7 +1,3 @@
-import sys
-from torchvision.transforms import functional
-sys.modules["torchvision.transforms.functional_tensor"] = functional
-
 import io
 import logging
 
@@ -34,11 +30,11 @@ app.add_middleware(
 upscaler = ImageUpscaler()
 
 
-@app.on_event("startup")
-async def startup_event():
-  logger.info("Cargando modelo Real-ESRGAN...")
-  upscaler.load_model()
-  logger.info("Modelo cargado y listo.")
+# @app.on_event("startup")
+# async def startup_event():
+#   logger.info("Cargando modelo Real-ESRGAN...")
+#   upscaler.load_model()
+#   logger.info("Modelo cargado y listo.")
 
 
 @app.get("/")
@@ -68,6 +64,11 @@ async def upscale_image(file: UploadFile = File(...), scale: int = 4):
     input_image = Image.open(io.BytesIO(contents)).convert("RGB")
   except Exception:
     raise HTTPException(status_code=400, detail="No se pudo leer la imagen enviada.")
+
+  if not upscaler.is_loaded():
+    logger.info("Cargando modelo Real-ESRGAN (primer request)...")
+    upscaler.load_model()
+    logger.info("Modelo cargado y listo.")
 
   try:
     output_image = upscaler.upscale(input_image, scale=scale)
