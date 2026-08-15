@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import BeforeAfterSlider from './components/BeforeAfterSlider'
 import UploadIcon from './components/UploadIcon'
-import img from './assets/imagen-mejorada.png'
 import './App.css'
 
 // Cambia esto por la URL real de tu backend en Render una vez desplegado
@@ -21,7 +20,7 @@ enum ImageScalingStatus {
 export default function App() {
   const [originalFile, setOriginalFile] = useState<File | null>(null)
   const [originalPreview, setOriginalPreview] = useState<string | null>(null)
-  const [resultUrl, setResultUrl] = useState<string | null>(img)
+  const [resultUrl, setResultUrl] = useState<string | null>(null)
   const [scale, setScale] = useState(4)
   const [status, setStatus] = useState<ImageScalingStatus>(ImageScalingStatus.Idle)
   const [errorMsg, setErrorMsg] = useState('')
@@ -52,10 +51,6 @@ export default function App() {
     resetResult()
     setOriginalFile(file)
     setOriginalPreview(URL.createObjectURL(file))
-
-    console.log(img)
-    setResultUrl(img)
-    setStatus(ImageScalingStatus.Done)
   }, [])
 
   const onInputChange = (e: ChangeEvent<HTMLInputElement, HTMLInputElement>) => {
@@ -103,6 +98,16 @@ export default function App() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  const downloadImage = () => {
+    if (!resultUrl) return
+    const link = document.createElement('a')
+    link.href = resultUrl
+    link.download = `${originalFile?.name}-scaled` || 'image-scaled.png'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="page">
       <header className="header">
@@ -143,11 +148,17 @@ export default function App() {
 
         {originalPreview && status !== ImageScalingStatus.Done && (
           <div className="preview-panel">
-            <div className="preview-panel__image-wrap">
-              <img src={originalPreview} alt="Vista previa" className="preview-panel__image" />
-            </div>
-
             <div className="controls">
+
+              <div className="controls__actions">
+                <button className="btn btn--ghost" onClick={onReset} disabled={status === ImageScalingStatus.Processing}>
+                  Cambiar imagen
+                </button>
+                <button className="btn btn--primary" onClick={onProcess} disabled={status === ImageScalingStatus.Processing}>
+                  {status === ImageScalingStatus.Processing ? 'Procesando…' : 'Mejorar imagen'}
+                </button>
+              </div>
+              
               <div className="scale-toggle" role="radiogroup" aria-label="Factor de escala">
                 {SCALE_OPTIONS.map((s) => (
                   <button
@@ -163,19 +174,14 @@ export default function App() {
                 ))}
               </div>
 
-              <div className="controls__actions">
-                <button className="btn btn--ghost" onClick={onReset} disabled={status === ImageScalingStatus.Processing}>
-                  Cambiar imagen
-                </button>
-                <button className="btn btn--primary" onClick={onProcess} disabled={status === ImageScalingStatus.Processing}>
-                  {status === ImageScalingStatus.Processing ? 'Procesando…' : 'Mejorar imagen'}
-                </button>
-              </div>
-
               {status === ImageScalingStatus.Processing && (
                 <p className="hint">Esto puede tardar entre 10 y 30 segundos.</p>
               )}
               {status === ImageScalingStatus.Error && <p className="error-text">{errorMsg}</p>}
+            </div>
+            
+            <div className="preview-panel__image-wrap">
+              <img src={originalPreview} alt="Vista previa" className="preview-panel__image" />
             </div>
           </div>
         )}
@@ -186,9 +192,9 @@ export default function App() {
               <button className="btn btn--ghost" onClick={onReset}>
                 Procesar otra imagen
               </button>
-              <a className="btn btn--primary" href={resultUrl} download="imagen-mejorada.png">
+              <button className="btn btn--primary" onClick={downloadImage}>
                 Descargar resultado
-              </a>
+              </button>
             </div>
             <BeforeAfterSlider beforeSrc={originalPreview} afterSrc={resultUrl} />
           </div>

@@ -1,6 +1,4 @@
 .page {
-  /* max-width: 720px;
-  margin: 0 auto; */
   padding: 64px 24px 80px;
   min-height: 100vh;
 }
@@ -104,7 +102,7 @@
 }
 
 .controls {
-  margin-top: 20px;
+  margin-bottom: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
